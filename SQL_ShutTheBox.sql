@@ -1,11 +1,11 @@
 
 
 --Dice sides:
-DECLARE @MaxDice TINYINT = 6;
+DECLARE @MaxDice INT = 8;
 
 --Shut the box possibilities between:
-DECLARE @MinAnswer TINYINT = 1;
-DECLARE @MaxAnswer TINYINT = 10;
+DECLARE @MinAnswer INT = 1;
+DECLARE @MaxAnswer INT = 10;
 
 
 ;WITH Dice (Roll)
@@ -32,34 +32,43 @@ AS
 (
 	SELECT pc.d1, pc.d2, [Answer] = pc.d1
 	FROM PossibleCominations pc
-	WHERE pc.d1 BETWEEN @MinAnswer AND @MaxAnswer
 	UNION ALL
 	SELECT pc.d1, pc.d2, pc.d2
 	FROM PossibleCominations pc
-	WHERE pc.d2 BETWEEN @MinAnswer AND @MaxAnswer
 	UNION all
 	SELECT pc.d1, pc.d2, pc.Sum
 	FROM PossibleCominations pc
-	WHERE pc.Sum BETWEEN @MinAnswer AND @MaxAnswer
 /*
 	UNION all
 	SELECT pc.d1, pc.d2, pc.Minus
 	FROM PossibleCominations pc
-	WHERE pc.Minus BETWEEN @MinAnswer AND @MaxAnswer
 	UNION all
 	SELECT pc.d1, pc.d2, pc.Multiply
 	FROM PossibleCominations pc
-	WHERE pc.Multiply BETWEEN @MinAnswer AND @MaxAnswer
 --*/
 ), TotalCount(tc) AS
 (
 	SELECT COUNT(*) 
 	FROM Answers
+), CompleteAnswerSet(Answer) AS
+(
+	SELECT @MinAnswer
+	UNION ALL
+    SELECT Answer + 1
+	FROM CompleteAnswerSet c
+	WHERE c.Answer < @MaxAnswer
 )
 SELECT 
-	 a.Answer
-	,[Possible Outcomes] = COUNT(*)
-	,[Chance to roll] = CAST((COUNT(*) / CAST(MAX(t.tc) AS DECIMAL(5,2)))*100.0 AS DECIMAL(5,2))
-FROM Answers a
+	 cas.Answer
+	,[Possible Outcomes] = MAX(z.AnswerCount)
+	,[Chance to roll] = CAST((MAX(z.AnswerCount) / CAST(MAX(t.tc) AS DECIMAL(6,2)))*100.0 AS DECIMAL(6,2))
+FROM CompleteAnswerSet cas
 CROSS JOIN TotalCount t
-GROUP BY a.Answer
+OUTER APPLY (
+	SELECT COUNT(*)
+	FROM Answers a
+	WHERE a.Answer = cas.Answer
+) z (AnswerCount)
+WHERE cas.Answer BETWEEN @MinAnswer AND @MaxAnswer
+GROUP BY cas.Answer
+ORDER BY cas.Answer;
